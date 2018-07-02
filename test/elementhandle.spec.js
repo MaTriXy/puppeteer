@@ -50,6 +50,20 @@ module.exports.addTests = function({testRunner, expect}) {
       const box = await elementHandle.boundingBox();
       expect(box).toEqual({ x: 8, y: 8, width: 100, height: 200 });
     });
+    it('should work with SVG nodes', async({page, server}) => {
+      await page.setContent(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="500" height="500">
+          <rect id="theRect" x="30" y="50" width="200" height="300"></rect>
+        </svg>
+      `);
+      const element = await page.$('#therect');
+      const pptrBoundingBox = await element.boundingBox();
+      const webBoundingBox = await page.evaluate(e => {
+        const rect = e.getBoundingClientRect();
+        return {x: rect.x, y: rect.y, width: rect.width, height: rect.height};
+      }, element);
+      expect(pptrBoundingBox).toEqual(webBoundingBox);
+    });
   });
 
   describe('ElementHandle.boxModel', function() {
@@ -222,6 +236,9 @@ module.exports.addTests = function({testRunner, expect}) {
           height: 600px;
           margin-left: 50px;
         }
+        ::-webkit-scrollbar{
+          display: none;
+        }
         </style>
         <div class="to-screenshot"></div>
       `);
@@ -334,13 +351,14 @@ module.exports.addTests = function({testRunner, expect}) {
       expect(content).toEqual(['a1-child-div', 'a2-child-div']);
     });
 
-    it('should throw in case of missing selector', async({page, server}) => {
+    it('should not throw in case of missing selector', async({page, server}) => {
       const htmlContent = '<div class="a">not-a-child-div</div><div id="myId"></div>';
       await page.setContent(htmlContent);
       const elementHandle = await page.$('#myId');
-      const errorMessage = await elementHandle.$$eval('.a', nodes => nodes.map(n => n.innerText)).catch(error => error.message);
-      expect(errorMessage).toBe(`Error: failed to find elements matching selector ".a"`);
+      const nodesLength = await elementHandle.$$eval('.a', nodes => nodes.length);
+      expect(nodesLength).toBe(0);
     });
+
   });
 
   describe('ElementHandle.$$', function() {
